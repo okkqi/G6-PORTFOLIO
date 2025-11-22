@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>G6</title>
+<style>
+/* -------------------------
+   Theme variables (switchable)
+   ------------------------- */
+:root{
+  --bg1: #3b0000;
+  --bg2: #8b0000;
+  --accent: #ff1f2d;
+  --glass: rgba(255,255,255,0.04);
+  --page-text: #ffffff;
+  --page-text-muted: rgba(255,255,255,0.85);
+  --card-bg: rgba(0,0,0,0.12);
+  --overlay-bg-start: rgba(11,0,0,0.96);
+  --overlay-bg-end: rgba(30,0,0,0.98);
+  --welcome-start: #110000;
+  --welcome-end: #500000;
+  --cinematic-vignette: rgba(0,0,0,0.6);
+
+  /* control colors that change between themes */
+  --control-bg: rgba(0,0,0,0.36);
+  --control-border: rgba(255,255,255,0.08);
+  --muted-bg-hover: rgba(255,255,255,0.02);
+  --selector-role-color: #ffd6d6;
+}
+
+/* Light theme overrides */
+body[data-theme="light"]{
+  --bg1:#f4f0ef; --bg2:#e6dede; --accent:#c62828;
+  --glass: rgba(0,0,0,0.06);
+  --page-text:#111;
+  --page-text-muted: rgba(0,0,0,0.78);
+  --card-bg: rgba(255,255,255,0.06);
+  --overlay-bg-start: rgba(255,255,255,0.98);
+  --overlay-bg-end: rgba(245,245,245,0.98);
+  --welcome-start:#fff; --welcome-end:#f6f0f0;
+  --cinematic-vignette: rgba(0,0,0,0.18);
+
+  --control-bg: rgba(0,0,0,0.06);
+  --control-border: rgba(0,0,0,0.12);
+  --muted-bg-hover: rgba(0,0,0,0.03);
+  --selector-role-color: rgba(190,40,40,0.95);
+}
+
+/* Helper: expose rgb of page-text for button hover */
+:root { --page-text-rgb: 255,255,255; }
+body[data-theme="light"]{ --page-text-rgb: 17,17,17; }
+
+/* Base */
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  height:100vh;
+  width:100vw;
+  overflow:auto;
+  background: linear-gradient(135deg,var(--bg1) 0%, var(--bg2) 60%, #ff6b6b 100%);
+  font-family:Inter, system-ui, -apple-system,'Segoe UI',Roboto,Arial;
+  color:var(--page-text);
+  transition: background .35s ease, color .25s ease;
+}
+
+/* Stage & Card (team picture only) */
+.stage{
+  width:100%;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px 16px 24px;
+}
+.card{
+  width:min(1200px,94%);
+  max-width:1400px;
+  border-radius:16px;
+  background:var(--card-bg);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:28px;
+  position:relative;
+  box-shadow:0 18px 40px rgba(0,0,0,0.18);
+  overflow:hidden;
+}
+
+/* ---------- WELCOME SCREEN ---------- */
+#welcomeScreen{
+  position:fixed; inset:0; z-index:4000;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:18px;
+  background: linear-gradient(135deg,var(--welcome-start), var(--welcome-end));
+  transition:opacity .45s ease;
+  color:var(--page-text);
+}
+#welcomeScreen.hidden{ opacity:0; pointer-events:none }
+#welcomeScreen h1{
+  font-size:44px; margin:0; font-weight:900;
+  letter-spacing:1px; text-align:center;
+}
+#welcomeScreen p{ margin:0; opacity:.9 }
+#welcomeScreen button{
+  margin-top:12px; padding:12px 22px; font-size:18px;
+  border-radius:12px; border:1px solid var(--control-border);
+  background:var(--glass); color:var(--page-text); cursor:pointer;
+}
+#welcomeScreen button:hover{
+  background: rgba(var(--page-text-rgb),0.06);
+}
+
+/* ---------- Background portrait (for selector) ---------- */
+.bg-portrait {
+  position:absolute; inset:0; z-index:2050; pointer-events:none;
+  display:flex; align-items:center; justify-content:center;
+  transition: opacity .45s ease, transform .45s ease, filter .45s ease;
+  opacity:0; transform: scale(1.02);
+}
+.bg-portrait.visible{ opacity:1; transform: scale(1); }
+.bg-portrait img{
+  width:1400px; max-width:200%; height:100%; object-fit:cover;
+  filter: blur(24px) brightness(.38) saturate(0.9); transform: scale(1.06);
+  transition: filter .45s ease, transform .45s ease;
+  will-change:filter,transform;
+  border-radius:0;
+}
+.bg-portrait::after{
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(1200px 600px at 50% 40%,
+              rgba(0,0,0,0.16) 0%, var(--cinematic-vignette) 45%, rgba(0,0,0,0.86) 100%);
+  pointer-events:none;
+}
+
+/* Photo area (team picture) */
+.photo-wrap{
+  position:relative;
+  width:100%;
+  height:calc(100vh - 120px);
+  max-height:760px;
+  border-radius:12px;
+  overflow:visible;
+  background:transparent;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  perspective:1400px;
+  z-index:2000;
+}
+.photo-wrap img{
+  width:auto; height:auto;
+  max-width:86%; max-height:86%;
+  object-fit:contain; display:block;
+  border-radius:10px;
+  transition:box-shadow 300ms ease,
+             transform 220ms cubic-bezier(.2,.9,.2,1),
+             opacity .45s ease;
+  will-change:transform,opacity;
+  backface-visibility:hidden;
+  z-index:4;
+  box-shadow:0 30px 80px rgba(0,0,0,0.6);
+  opacity:1;
+}
+.photo-wrap.hidden-bg {
+  opacity:0; pointer-events:none; transform: scale(.995);
+}
+
+/* Rings & click pulse */
+.rings-outer,.rings-inner{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  pointer-events:none;z-index:3;
+}
+.rings-outer{width:150%;height:150%;opacity:0;transition:opacity .18s ease}
+.rings-outer .ring{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%) scale(.04);
+  border-radius:10px;border:6px solid rgba(255,31,45,0.6);
+  width:92%;height:92%;
+  filter:drop-shadow(0 0 18px rgba(255,31,45,0.92));
+  opacity:1;animation:outerGrow 1.6s linear infinite;
+  animation-play-state:paused;
+}
+.rings-inner{width:88%;height:84%;opacity:0;transition:opacity .12s ease;z-index:5}
+.rings-inner .ring{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%) scale(.06);
+  border-radius:10px;border:4px solid rgba(255,31,45,0.6);
+  width:86%;height:86%;
+  filter:drop-shadow(0 0 12px rgba(255,31,45,0.9));
+  animation:innerGrow 1.1s ease-out infinite;
+  animation-play-state:paused;
+}
+@keyframes outerGrow{
+ 0%{transform:translate(-50%,-50%) scale(.06);opacity:1}
+ 60%{opacity:.5}
+ 100%{transform:translate(-50%,-50%) scale(1.6);opacity:0}
+}
+@keyframes innerGrow{
+ 0%{transform:translate(-50%,-50%) scale(.06);opacity:1}
+ 50%{opacity:.5}
+ 100%{transform:translate(-50%,-50%) scale(1.12);opacity:0}
+}
+.photo-wrap.rings-active .rings-outer,
+.photo-wrap.rings-active .rings-inner{opacity:1}
+.photo-wrap.rings-active .ring{animation-play-state:running}
+
+.click-ring{
+  position:absolute;border-radius:10px;
+  border:3px solid rgba(255,31,45,0.98);
+  width:48px;height:48px;
+  transform:translate(-50%,-50%) scale(.22);
+  animation:clickBurst .7s cubic-bezier(.2,.8,.25,1) forwards;
+  z-index:8;
+}
+@keyframes clickBurst{
+ 0%{transform:translate(-50%,-50%) scale(.22);opacity:1}
+ 50%{transform:translate(-50%,-50%) scale(.9);opacity:.6}
+ 100%{transform:translate(-50%,-50%) scale(2.2);opacity:0}
+}
+
+/* ---------- MAIN INFO SECTIONS (UNDER PICTURE) ---------- */
+.main-info{
+  width:min(1200px,94%);
+  max-width:1400px;
+  margin:0 auto 80px;
+  display:flex;
+  flex-direction:column;
+  gap:32px;
+}
+.info-card{
+  border-radius:16px;
+  padding:26px 28px 28px;
+  background:linear-gradient(135deg, rgba(0,0,0,0.7), rgba(0,0,0,0.5));
+  box-shadow:0 18px 36px rgba(0,0,0,0.6);
+}
+body[data-theme="light"] .info-card{
+  background:linear-gradient(135deg, rgba(255,255,255,0.98), rgba(245,245,245,0.96));
+  box-shadow:0 10px 24px rgba(0,0,0,0.06);
+}
+.info-card h2{
+  margin:0 0 10px;
+  font-size:24px;
+}
+.info-card p{
+  margin:4px 0;
+  color:var(--page-text-muted);
+  line-height:1.6;
+}
+.info-card ul{
+  margin:8px 0 0 18px;
+  padding:0;
+  color:var(--page-text-muted);
+}
+.info-card li{ margin-bottom:4px; }
+
+/* contact extra styles */
+.contact-email{
+  font-weight:700;
+  color:var(--accent);
+  text-decoration:none;
+  cursor:pointer;
+}
+.contact-email:hover{
+  text-decoration:underline;
+}
+.contact-tip{
+  font-size:13px;
+  opacity:.8;
+  margin-top:4px;
+}
+.gmail-btn{
+  margin-top:10px;
+  padding:8px 14px;
+  border-radius:12px;
+  border:1px solid var(--control-border);
+  background:var(--control-bg);
+  color:var(--page-text);
+  cursor:pointer;
+  font-weight:600;
+}
+.gmail-btn:hover{
+  background:rgba(var(--page-text-rgb),0.06);
+}
+
+/* profile overlay (detailed) */
+#profilePage{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:3000;
+  background:linear-gradient(180deg,var(--overlay-bg-start),var(--overlay-bg-end));
+  overflow:auto;
+  padding:36px;
+}
+#profileCard{
+  max-width:920px;margin:28px auto;
+  background:rgba(0,0,0,0.32);
+  padding:26px;border-radius:14px;
+  color:var(--page-text);
+  box-shadow:0 24px 60px rgba(0,0,0,0.7);
+}
+#profileCard .hero{
+  display:flex;gap:20px;align-items:flex-start;
+}
+#profileCard .hero .avatar{
+  width:180px;height:180px;border-radius:12px;overflow:hidden;
+}
+#profileCard .hero .avatar img{
+  width:100%;height:100%;object-fit:cover;
+}
+#profileCard .meta .name{font-weight:800;font-size:24px}
+#profileCard .meta .role{opacity:.9;margin-top:6px}
+#profileCard .tags{
+  display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;
+}
+#profileCard .tag{
+  background:var(--glass);padding:8px 10px;border-radius:10px;
+}
+#profileCard .section{margin-top:18px}
+#profileCard .section h4{margin:0 0 10px 0}
+#profileCard .btn{
+  display:inline-block;padding:10px 12px;border-radius:10px;
+  background:transparent;border:1px solid var(--control-border);
+  color:var(--page-text);text-decoration:none;cursor:pointer;
+}
+#profileCard .close-btn{margin-left:auto}
+
+/* profiles button & selector overlay */
+#profilesBtn{
+  position:fixed;top:18px;right:18px;z-index:2600;
+  padding:10px 14px;border-radius:12px;
+  border:1px solid var(--control-border);
+  background:var(--control-bg);
+  color:var(--page-text);cursor:pointer;font-weight:700;
+}
+#profilesPanel{
+  position:fixed;top:60px;right:18px;z-index:2600;
+  width:260px;max-height:70vh;overflow:auto;
+  background:linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.4));
+  border-radius:12px;padding:12px;display:none;
+  box-shadow:0 18px 40px rgba(0,0,0,0.6);
+  border:1px solid rgba(255,31,45,0.06);
+}
+body[data-theme="light"] #profilesPanel{
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(250,250,250,0.95));
+  box-shadow: 0 8px 28px rgba(0,0,0,0.06);
+  border:1px solid var(--control-border);
+}
+#profilesPanel .p-title{font-weight:800;margin-bottom:10px}
+#profilesPanel .p-item{
+  padding:8px;border-radius:8px;display:flex;
+  align-items:center;gap:10px;cursor:pointer;
+}
+#profilesPanel .p-item:hover{background:var(--muted-bg-hover)}
+#profilesPanel .p-item img{
+  width:36px;height:36px;border-radius:8px;object-fit:cover;
+}
+#profilesPanel .p-close{
+  display:block;margin-top:10px;padding:8px;border-radius:8px;
+  border:1px solid var(--control-border);background:transparent;
+  color:var(--page-text);cursor:pointer;width:100%;
+}
+
+/* cinematic selector */
+#selectorOverlay{
+  position:fixed; inset:0; z-index:2100;
+  display:none; align-items:center; justify-content:center;
+  transition: opacity .26s ease;
+  background: transparent;
+}
+#selectorOverlay.show{ display:flex; }
+#selectorCard{
+  width:520px; max-width:92%;
+  background: linear-gradient(180deg, rgba(0,0,0,0.36), rgba(0,0,0,0.28));
+  border-radius:16px; padding:28px;
+  display:flex; flex-direction:column; align-items:center; gap:18px;
+  box-shadow: 0 40px 120px rgba(0,0,0,0.7);
+  transform: translateY(20px) scale(.98);
+  opacity: 0;
+  transition: transform .42s cubic-bezier(.2,.9,.2,1), opacity .36s ease;
+  overflow:hidden;
+}
+body[data-theme="light"] #selectorCard{
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
+  box-shadow: 0 30px 90px rgba(0,0,0,0.06);
+  color:var(--page-text);
+}
+
+/* avatar + glow */
+.selector-avatar{
+  width:260px;height:260px;border-radius:50%;overflow:hidden;
+  border:8px solid rgba(255,255,255,0.06);
+  box-shadow:0 38px 90px rgba(0,0,0,0.6);
+  display:flex;align-items:center;justify-content:center;
+  transform: scale(.88);
+  transition: transform .42s cubic-bezier(.2,.9,.2,1),
+             box-shadow .42s ease, filter .42s ease;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+}
+body[data-theme="light"] .selector-avatar{
+  border:8px solid rgba(0,0,0,0.06);
+}
+.selector-avatar img{width:100%;height:100%;object-fit:cover; display:block;}
+.selector-avatar.pop{
+  transform: scale(1.02);
+  box-shadow:0 60px 140px rgba(0,0,0,0.8);
+  filter: saturate(1.05) contrast(1.03);
+}
+
+/* name / role */
+.selector-name{
+  font-weight:900; font-size:24px; letter-spacing:1.2px;
+  text-align:center; color:var(--page-text);
+  opacity:0; transform:translateY(10px) scale(.98);
+  transition: transform .36s cubic-bezier(.2,.9,.2,1),
+             opacity .28s ease, letter-spacing .36s ease;
+}
+.selector-name.in{
+  opacity:1; transform:translateY(0) scale(1); letter-spacing:2px;
+}
+.selector-role{
+  opacity:0; margin-top:6px; font-size:14px;
+  color:var(--selector-role-color);
+  transform:translateY(8px);
+  transition: transform .36s ease, opacity .28s ease;
+}
+.selector-role.in{ opacity:1; transform:translateY(0); }
+.selector-hint{
+  font-size:13px; opacity:.9;
+  color:var(--page-text-muted); text-align:center;
+}
+.selector-controls{ display:flex; gap:12px; margin-top:8px; }
+.selector-controls .btn{
+  padding:8px 12px; border-radius:10px;
+  border:1px solid var(--control-border);
+  background:var(--control-bg); color:var(--page-text);
+  cursor:pointer;
+}
+
+/* theme toggle button */
+#themeToggle{
+  position:fixed; top:18px; left:18px; z-index:2700;
+  padding:8px 12px; border-radius:12px;
+  border:1px solid var(--control-border);
+  background:var(--control-bg);
+  color:var(--page-text); cursor:pointer; font-weight:700;
+}
+
+/* responsive */
+@media (max-width:560px){
+  .selector-avatar{ width:160px; height:160px }
+  #selectorCard{ padding:18px; width:92% }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== WELCOME SCREEN ========= -->
+<div id="welcomeScreen" role="dialog" aria-modal="true" aria-label="Welcome">
+  <h1>WELCOME TO TEAM G6</h1>
+  <p>Click enter (or press Enter) to step inside.</p>
+  <button id="enterBtn" aria-label="Enter">ENTER</button>
+</div>
+
+<!-- theme toggle -->
+<button id="themeToggle" aria-pressed="false" title="Toggle theme">DARK</button>
+
+<!-- background portrait (for cinematic blur) -->
+<div class="bg-portrait" id="bgPortrait" aria-hidden="true">
+  <img id="bgPortraitImg" src="" alt="background portrait">
+</div>
+
+<!-- Main stage & photo -->
+<div class="stage" style="display:none;">
+  <div class="card">
+    <div class="photo-wrap" id="photoWrap" tabindex="0">
+      <img id="photoImg"
+           src="https://uploads.onecompiler.io/43ee99qt7/444knpr8m/team%20photo.png"
+           alt="Esport Team" loading="eager">
+      <div class="rings-inner" id="ringsInner" aria-hidden="true">
+        <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+      </div>
+      <div class="rings-outer" id="ringsOuter" aria-hidden="true">
+        <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+      </div>
+      <div class="photo-overlay" aria-hidden="true"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== INFO SECTIONS UNDER THE TEAM PICTURE ========= -->
+<main class="main-info">
+  <!-- About -->
+  <section class="info-card" id="aboutTeam">
+    <h2>About Team G6</h2>
+    <p>
+      Team G6 is a coordinated web-development and gaming squad that combines
+      creativity, discipline, and good vibes. We don’t just play or code — 
+      we treat every project like a match where everyone has a role, a voice,
+      and a responsibility.
+    </p>
+    <p>
+      Each member brings something unique: leadership, strategy, creativity,
+      game sense, and guidance. Together, we balance fun with focus so we can
+      enjoy the grind while still aiming for real growth.
+    </p>
+
+    <h3>How we work as a team</h3>
+    <ul>
+      <li><strong>Shared game plan:</strong> we plan together, share ideas, and respect each member’s strengths.</li>
+      <li><strong>Role rotation:</strong> we rotate responsibilities so everyone gets a chance to lead and learn.</li>
+      <li><strong>Review &amp; improvement:</strong> we review our work like game replays — always looking for ways to improve, not to blame.</li>
+      <li><strong>Clear communication:</strong> we value honest callouts, updates, and feedback so nobody is left behind.</li>
+      <li><strong>Healthy mindset:</strong> we celebrate wins, learn from losses, and keep our attitude humble and hungry.</li>
+    </ul>
+
+    <p style="margin-top:10px;">
+      Whether it’s building a website, planning a presentation,
+      or grinding ranked games, Team G6 aims to stay
+      <strong>organized</strong>, <strong>supportive</strong>, and <strong>fun</strong>.
+    </p>
+  </section>
+
+  <!-- Contact -->
+  <section class="info-card" id="contactTeam">
+    <h2>Contact Team G6</h2>
+    <p>
+      Have questions, feedback, or want to collaborate with us?
+      We’d love to hear from you.
+    </p>
+
+    <p style="margin-top:10px;"><strong>Best way to reach us:</strong></p>
+    <p>
+      <!-- CLICKING THIS OPENS GMAIL COMPOSE IN SAME TAB -->
+      <a class="contact-email" href="#"
+         onclick="openGmailCompose(true); return false;">
+        kaiistuguh@gmail.com
+      </a>
+    </p>
+
+    <!-- BUTTON: GMAIL COMPOSE IN NEW TAB -->
+    <button class="gmail-btn"
+            type="button"
+            onclick="openGmailCompose(false)">
+      Open Gmail compose
+    </button>
+
+    <p class="contact-tip">
+      Click the email to open Gmail compose in this tab, or use the button to
+      open Gmail in a new tab. You can also copy the address and use any email
+      service you like.
+    </p>
+
+    <h3 style="margin-top:14px;">When you email us, you can include:</h3>
+    <ul>
+      <li>Who you are (student, teacher, friend, collaborator, etc.).</li>
+      <li>What you want to talk about (project idea, feedback, questions, or support).</li>
+      <li>Any links, files, or extra details we should check out.</li>
+    </ul>
+
+    <p style="margin-top:10px;">
+      We’ll do our best to reply with
+      <strong>respectful</strong>, <strong>honest</strong>, and
+      <strong>helpful</strong> answers.
+    </p>
+  </section>
+</main>
+
+<!-- Detailed profile overlay -->
+<div id="profilePage" aria-hidden="true">
+  <div id="profileCard"></div>
+</div>
+
+<!-- PROFILES button + panel -->
+<button id="profilesBtn" aria-haspopup="true" aria-expanded="false">PROFILES</button>
+<div id="profilesPanel" role="menu" aria-hidden="true">
+  <div class="p-title">Team Members</div>
+  <div id="profilesList"></div>
+  <button class="p-close" id="closeProfiles">Close</button>
+</div>
+
+<!-- Cinematic selector -->
+<div id="selectorOverlay" aria-hidden="true" role="dialog">
+  <div id="selectorCard">
+    <div class="selector-avatar" id="selectorAvatar"><img src="" alt="profile"></div>
+    <div>
+      <div class="selector-name" id="selectorName">Name</div>
+      <div class="selector-role" id="selectorRole">Role</div>
+    </div>
+    <div class="selector-hint">
+      Use <strong>Down</strong> to go next, <strong>Up</strong> to go previous — 
+      Press <strong>Enter</strong> to open profile
+    </div>
+    <div class="selector-controls">
+      <button class="btn" id="selPrev">Prev</button>
+      <button class="btn" id="selNext">Next</button>
+      <button class="btn" id="selOpen">Open</button>
+      <button class="btn" id="selClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* helper for Gmail compose */
+function openGmailCompose(sameTab){
+  const url =
+    'https://mail.google.com/mail/?view=cm&fs=1' +
+    '&to=kaiistuguh@gmail.com' +
+    '&su=' + encodeURIComponent('Hello Team G6') +
+    '&body=' + encodeURIComponent('Hi Team G6,\n\n');
+  if(sameTab){
+    window.location.href = url;      // open in this tab
+  }else{
+    window.open(url, '_blank');      // open in new tab
+  }
+}
+
+/* ===== Welcome screen behavior ===== */
+const welcome = document.getElementById('welcomeScreen');
+const enterBtn = document.getElementById('enterBtn');
+const stageEl = document.querySelector('.stage');
+
+function hideWelcome(){
+  welcome.classList.add('hidden');
+  setTimeout(()=>{
+    welcome.style.display = 'none';
+    stageEl.style.display = '';
+    document.body.style.overflow = '';
+  }, 480);
+}
+enterBtn.addEventListener('click', hideWelcome);
+document.addEventListener('keydown', (e)=>{
+  if(welcome && welcome.style.display !== 'none' && (e.key === 'Enter' || e.code === 'Enter')){
+    e.preventDefault();
+    hideWelcome();
+  }
+});
+
+/* ===== Theme toggle (persisted) ===== */
+const themeToggle = document.getElementById('themeToggle');
+const stored = localStorage.getItem('g6-theme');
+if(stored === 'light') {
+  document.body.setAttribute('data-theme','light');
+  themeToggle.textContent = 'LIGHT';
+  themeToggle.setAttribute('aria-pressed','true');
+} else {
+  document.body.removeAttribute('data-theme');
+  themeToggle.textContent = 'DARK';
+  themeToggle.setAttribute('aria-pressed','false');
+}
+themeToggle.addEventListener('click', ()=> {
+  const isLight = document.body.getAttribute('data-theme') === 'light';
+  if(isLight){
+    document.body.removeAttribute('data-theme');
+    localStorage.setItem('g6-theme','dark');
+    themeToggle.textContent = 'DARK';
+    themeToggle.setAttribute('aria-pressed','false');
+  } else {
+    document.body.setAttribute('data-theme','light');
+    localStorage.setItem('g6-theme','light');
+    themeToggle.textContent = 'LIGHT';
+    themeToggle.setAttribute('aria-pressed','true');
+  }
+});
+themeToggle.addEventListener('keydown', (e)=>{
+  if(e.key===' '||e.key==='Enter'){ e.preventDefault(); themeToggle.click(); }
+});
+
+/* ------------------- Photo tilt ------------------- */
+const photoWrap = document.getElementById('photoWrap');
+const img = document.getElementById('photoImg');
+const ringsOuter = document.getElementById('ringsOuter');
+const ringsInner = document.getElementById('ringsInner');
+let raf = null, pointerInside = false, lastMove = 0;
+const target = { rx:0, ry:0, tz:0, ty:0 }, current = { rx:0, ry:0, tz:0, ty:0 };
+function lerp(a,b,t){ return a + (b-a) * t }
+function update(){
+  const idle = (Date.now() - lastMove) > 700;
+  const time = Date.now() / 1000;
+  const floatY = idle ? Math.sin(time * 1.1) * 6 : 0;
+  current.rx = lerp(current.rx, target.rx, 0.16);
+  current.ry = lerp(current.ry, target.ry, 0.16);
+  current.tz = lerp(current.tz, target.tz, 0.12);
+  current.ty = lerp(current.ty, idle ? floatY : 0, 0.08);
+  if(img) img.style.transform =
+    `perspective(1200px) translateY(${ -current.ty }px)`+
+    ` rotateX(${ -current.rx.toFixed(2) }deg)`+
+    ` rotateY(${ current.ry.toFixed(2) }deg)`+
+    ` translateZ(${ current.tz.toFixed(1) }px) scale(1.03)`;
+  if(img) img.style.boxShadow =
+    `${ -current.ry/2 }px ${ current.rx/2 + 18 }px ${ 40 + current.tz }px rgba(0,0,0,0.72)`;
+  raf = requestAnimationFrame(update);
+}
+function onMove(ev){
+  if(!photoWrap) return;
+  const rect = photoWrap.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const dx = ev.clientX - cx;
+  const nx = Math.max(-1, Math.min(1, dx / (rect.width/2)));
+  const ny = Math.max(-1, Math.min(1,
+     (ev.clientY - (rect.top + rect.height/2)) / (rect.height/2)));
+  const tiltMax = 12;
+  target.rx = ny * tiltMax; target.ry = nx * tiltMax;
+  target.tz = 20 + (Math.abs(nx) + Math.abs(ny)) * 12;
+  const ringX = (-dx / rect.width) * 8;
+  const ringY = (-(ev.clientY - rect.top) / rect.height) * 8;
+  if(ringsOuter)
+    ringsOuter.style.transform =
+      `translate(calc(-50% + ${ringX}px), calc(-50% + ${ringY}px))`;
+  if(ringsInner)
+    ringsInner.style.transform =
+      `translate(calc(-50% + ${ringX/1.6}px), calc(-50% + ${ringY/1.6}px))`;
+  lastMove = Date.now();
+  if(!pointerInside){
+    pointerInside = true;
+    photoWrap.classList.add('rings-active','floating');
+  }
+  if(!raf) raf = requestAnimationFrame(update);
+}
+if(photoWrap){
+  photoWrap.addEventListener('pointermove', onMove);
+  photoWrap.addEventListener('pointerenter', ()=>{
+    lastMove = Date.now();
+    if(!raf) raf = requestAnimationFrame(update);
+    photoWrap.classList.add('floating','rings-active');
+  });
+  photoWrap.addEventListener('pointerleave', ()=>{
+    pointerInside=false;
+    photoWrap.classList.remove('rings-active');
+    target.rx=0; target.ry=0; target.tz=0; lastMove=0;
+    setTimeout(()=>{
+      if(raf){
+        cancelAnimationFrame(raf); raf=null;
+        current.rx=current.ry=current.tz=current.ty=0;
+        if(img){
+          img.style.transform='none';
+          img.style.boxShadow='0 30px 80px rgba(0,0,0,0.6)';
+        }
+      }
+    },600);
+  });
+  photoWrap.addEventListener('pointerdown', (ev)=>{
+    const rect = photoWrap.getBoundingClientRect();
+    const lx = ev.clientX - rect.left;
+    const ly = ev.clientY - rect.top;
+    const ring = document.createElement('div');
+    ring.className='click-ring';
+    ring.style.left = Math.max(12, Math.min(rect.width-12, lx)) + 'px';
+    ring.style.top  = Math.max(12, Math.min(rect.height-12, ly)) + 'px';
+    photoWrap.appendChild(ring);
+    ring.addEventListener('animationend', ()=> ring.remove(), { once:true });
+  });
+  if(!raf) raf = requestAnimationFrame(update);
+}
+
+/* ------------------- PROFILE DATA ------------------- */
+const profiles = [
+  { 
+    name:"RAFAEL OCHINANG", 
+    role:"Leader", 
+    photo:"https://uploads.onecompiler.io/43ee99qt7/444kjdg3s/Gemini_Generated_Image_csh5q2csh5q2csh5.png", 
+    facebook:"https://www.facebook.com/okruu", 
+    instagram:"https://instagram.com/okkqii/", 
+    motto:"Enjoy the simple things and keep moving forward.", 
+    passions:"Gaming, Singing, Reading, Baking, Team Leading, Coffee Chats",
+    bio:"Rafael is a 19-year-old leader from Asingan, Pangasinan. He keeps the team calm during intense games and makes sure everyone feels heard. Outside of ranked matches, he loves playing different genres of games, experimenting with baking recipes, and sharing snacks with his teammates. He’s the type of leader who can hype the team up with a joke, then shift into serious focus when it’s time to win.", 
+    favgame:"Mobile Legends", 
+    birthdate:"12/06/2005"
+  },
+  { 
+    name:"ANIKAH KIM MAGNO", 
+    role:"Member", 
+    photo:"https://uploads.onecompiler.io/43ee99qt7/444kjdg3s/Gemini_Generated_Image_5hgipk5hgipk5hgi.png", 
+    facebook:"https://www.facebook.com/SeleiraKimMagno", 
+    instagram:"https://www.instagram.com/anxkhs_/", 
+    motto:"Stay curious and never stop learning.", 
+    passions:"Gaming, Singing, Art, Photography, Story Writing",
+    bio:"Anikah is the creative brain of the group. She loves exploring new game strategies and turning them into smart plays for the team. When she’s not gaming, you’ll find her sketching, singing along to her favorite songs, or capturing random aesthetic moments with her camera. She adds color, ideas, and good vibes to every practice session.", 
+    favgame:"Mobile Legends", 
+    birthdate:"09/09/2006"
+  },
+  { 
+    name:"CHARLO SUGUITAN", 
+    role:"Member", 
+    photo:"https://uploads.onecompiler.io/43ee99qt7/444kjdg3s/Gemini_Generated_Image_8g3p5s8g3p5s8g3p.png", 
+    facebook:"https://www.facebook.com/charlo.suguitan.7", 
+    instagram:"https://www.instagram.com/__charlosgt/", 
+    motto:"Never stop improving, even on your good days.", 
+    passions:"Gaming, Coding, Sports, Strategy Planning, Tech Stuff",
+    bio:"Charlo is the grinder of the team. He loves breaking down plays, reviewing replays, and finding ways to improve even the smallest details. With an interest in coding and tech, he treats the game like a system that can always be optimized. Whether it’s on the court or in-game, he brings discipline, logic, and a competitive mindset.", 
+    favgame:"Mobile Legends", 
+    birthdate:""
+  },
+  { 
+    name:"JOHNSON SAMSON", 
+    role:"Member", 
+    photo:"https://uploads.onecompiler.io/43ee99qt7/444kjdg3s/Gemini_Generated_Image_fu069nfu069nfu06.png", 
+    facebook:"https://www.facebook.com/leionne.johnson.5", 
+    instagram:"https://www.instagram.com/sonxnj/", 
+    motto:"Keep it real and keep going.", 
+    passions:"Gaming, Fitness, Reading, Music, Teamwork",
+    bio:"Johnson is the team’s steady anchor. He balances competitiveness with chill energy, helping the team stay composed whether they’re winning or catching up. He enjoys working out, reading motivating stories, and listening to music that keeps him in the zone. In-game, he focuses on communication and timing, making sure everyone is on the same page.", 
+    favgame:"Mobile Legends", 
+    birthdate:""
+  },
+  { 
+    name:"JESSABELLE FLORENDO ABALOS", 
+    role:"Instructor", 
+    photo:"https://uploads.onecompiler.io/43ee99qt7/444mcje9g/photo_6104722818273578024_x.jpg", 
+    facebook:"https://www.facebook.com/meowchicken.nuggets", 
+    instagram:"https://www.instagram.com/dyosang.jess/", 
+    motto:"Guide with patience, lead with heart.", 
+    passions:"Teaching, Caring, Inspiring, Mentoring, Lifelong Learning",
+    bio:"Ms. Jessabelle is the team’s instructor and behind-the-scenes support. She motivates them to do well not only in games but also in academics and real life. With a mix of kindness, humor, and honesty, she reminds the team to be disciplined, respectful, and confident. She believes that every game, win or lose, is a lesson that can make them better people.", 
+    favgame:"", 
+    birthdate:""
+  }
+];
+
+/* ------------------- Profiles panel ------------------- */
+(function(){
+  const btn = document.getElementById('profilesBtn');
+  const panel = document.getElementById('profilesPanel');
+  const list = document.getElementById('profilesList');
+  const closeProfiles = document.getElementById('closeProfiles');
+
+  profiles.forEach((p, idx) => {
+    const item = document.createElement('div');
+    item.className = 'p-item';
+    item.tabIndex = 0;
+    item.innerHTML =
+      `<img src="${p.photo}" alt="${p.name}">`+
+      `<div style="flex:1">`+
+        `<div style="font-weight:800;font-size:13px">${p.name}</div>`+
+        `<div style="opacity:.8;font-size:12px">${p.role}</div>`+
+      `</div>`;
+    item.addEventListener('click', ()=> { openSelector(idx); panel.style.display='none'; });
+    item.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' ') { e.preventDefault(); item.click(); }
+    });
+    list.appendChild(item);
+  });
+
+  function showPanel(){
+    panel.style.display='block';
+    panel.setAttribute('aria-hidden','false');
+    btn.setAttribute('aria-expanded','true');
+  }
+  function hidePanel(){
+    panel.style.display='none';
+    panel.setAttribute('aria-hidden','true');
+    btn.setAttribute('aria-expanded','false');
+  }
+
+  btn.addEventListener('click', ()=> {
+    if(panel.style.display==='block') hidePanel(); else showPanel();
+  });
+  closeProfiles.addEventListener('click', hidePanel);
+  document.addEventListener('click', (e)=>{
+    if(!panel.contains(e.target) && e.target !== btn) hidePanel();
+  });
+})();
+
+/* ------------------- Cinematic selector ------------------- */
+const selectorOverlay = document.getElementById('selectorOverlay');
+const selectorCard = document.getElementById('selectorCard');
+const selectorAvatarImg = document.querySelector('#selectorAvatar img');
+const selectorName = document.getElementById('selectorName');
+const selectorRole = document.getElementById('selectorRole');
+const selPrev = document.getElementById('selPrev');
+const selNext = document.getElementById('selNext');
+const selOpen = document.getElementById('selOpen');
+const selClose = document.getElementById('selClose');
+
+const bgPortrait = document.getElementById('bgPortrait');
+const bgPortraitImg = document.getElementById('bgPortraitImg');
+
+let currentIndex = 0;
+let locked = false;
+const ANIM_MS = 420;
+
+function animateIn() {
+  const avatar = document.querySelector('.selector-avatar');
+  avatar.classList.add('pop');
+  selectorCard.classList.add('visible');
+  selectorName.classList.add('in');
+  selectorRole.classList.add('in');
+}
+function animateOut() {
+  const avatar = document.querySelector('.selector-avatar');
+  avatar.classList.remove('pop');
+  selectorCard.classList.remove('visible');
+  selectorName.classList.remove('in');
+  selectorRole.classList.remove('in');
+}
+function setBackgroundPortrait(src) {
+  const photoWrapEl = document.getElementById('photoWrap');
+  if(!src) {
+    bgPortraitImg.src = '';
+    bgPortrait.classList.remove('visible');
+    if(photoWrapEl) photoWrapEl.classList.remove('hidden-bg');
+    return;
+  }
+  bgPortraitImg.src = src;
+  bgPortrait.classList.add('visible');
+  if(photoWrapEl) photoWrapEl.classList.add('hidden-bg');
+}
+function renderSelector(index, dir) {
+  if(locked) return;
+  locked = true;
+  const p = profiles[index];
+
+  animateOut();
+  setBackgroundPortrait(p.photo || '');
+
+  selectorOverlay.style.display = 'flex';
+  selectorOverlay.classList.add('show');
+
+  selectorAvatarImg.style.opacity = '0';
+  selectorName.style.opacity = '0';
+  selectorRole.style.opacity = '0';
+
+  selectorAvatarImg.src = p.photo || '';
+  selectorAvatarImg.alt = p.name || '';
+  selectorName.textContent = p.name || '—';
+  selectorRole.textContent = p.role || '';
+
+  selectorCard.style.transform =
+    (dir === 'left')  ? 'translateX(18px) translateY(8px) scale(.99)' :
+    (dir === 'right') ? 'translateX(-18px) translateY(8px) scale(.99)' :
+                        'translateY(12px) scale(.98)';
+  selectorCard.style.opacity = '0';
+
+  void selectorCard.offsetWidth;
+
+  setTimeout(()=> {
+    selectorCard.style.transition =
+      `transform ${ANIM_MS}ms cubic-bezier(.2,.9,.2,1),`+
+      ` opacity ${ANIM_MS}ms ease`;
+    selectorCard.style.transform = 'translateY(0) scale(1)';
+    selectorCard.style.opacity = '1';
+    setTimeout(()=> {
+      selectorAvatarImg.style.transition =
+        `opacity ${ANIM_MS/1.4}ms ease,`+
+        ` transform ${ANIM_MS/1.3}ms cubic-bezier(.2,.9,.2,1)`;
+      selectorAvatarImg.style.opacity = '1';
+      selectorAvatarImg.style.transform = 'scale(1.02)';
+      selectorName.classList.add('in');
+      selectorRole.classList.add('in');
+    }, 90);
+    setTimeout(()=> {
+      selectorAvatarImg.style.transform = '';
+      animateIn();
+      selectorCard.style.transition = '';
+      locked = false;
+    }, ANIM_MS + 80);
+  }, 10);
+}
+function openSelector(i=0){
+  currentIndex = (i + profiles.length) % profiles.length;
+  renderSelector(currentIndex);
+  document.body.style.overflow = 'hidden';
+}
+function closeSelector(){
+  bgPortrait.classList.remove('visible');
+  const photoWrapEl = document.getElementById('photoWrap');
+  if(photoWrapEl) photoWrapEl.classList.remove('hidden-bg');
+
+  selectorOverlay.classList.remove('show');
+  selectorOverlay.style.display = 'none';
+
+  selectorAvatarImg.src = '';
+  selectorAvatarImg.alt = '';
+  selectorName.textContent = '';
+  selectorRole.textContent = '';
+
+  animateOut();
+  document.body.style.overflow = '';
+}
+function prevProfile(){
+  if(locked) return;
+  const next = (currentIndex - 1 + profiles.length) % profiles.length;
+  currentIndex = next;
+  renderSelector(currentIndex, 'right');
+}
+function nextProfile(){
+  if(locked) return;
+  const next = (currentIndex + 1) % profiles.length;
+  currentIndex = next;
+  renderSelector(currentIndex, 'left');
+}
+
+selPrev.addEventListener('click', prevProfile);
+selNext.addEventListener('click', nextProfile);
+selClose.addEventListener('click', closeSelector);
+selOpen.addEventListener('click', ()=> openProfileDetail(currentIndex));
+
+document.addEventListener('keydown', (e)=>{
+  if(selectorOverlay.style.display === 'flex' || selectorOverlay.classList.contains('show')){
+    if(e.key === 'ArrowDown'){ e.preventDefault(); nextProfile(); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); prevProfile(); }
+    else if(e.key === 'Enter'){ e.preventDefault(); openProfileDetail(currentIndex); }
+    else if(e.key === 'Escape'){ e.preventDefault(); closeSelector(); }
+  }
+});
+
+/* ------------------- Open detailed profile overlay ------------------- */
+const profilePage = document.getElementById('profilePage');
+const profileCard = document.getElementById('profileCard');
+function openProfileDetail(idx){
+  const p = profiles[idx];
+  const fallback =
+ 'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22 viewBox=%220 0 180 180%22%3E%3Crect width=%22180%22 height=%22180%22 rx=%2212%22 fill=%22%23880000%22/%3E%3Ctext x=%2240%22 y=%2298%22 fill=%22%23fff%22 font-family=%22Arial%22 font-size=%2214%22%3Eno+photo%3C/text%3E%3C/svg%3E';
+  const photoHtml = p.photo
+    ? `<img src="${p.photo}" alt="${p.name}" onerror="this.onerror=null;this.src='${fallback}';">`
+    : `<img src="${fallback}" alt="no-photo">`;
+  const passionsArr = p.passions ? p.passions.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  const tagsHtml = passionsArr.map(x=>`<span class="tag">${x}</span>`).join('');
+  const isJess = (p.name||'').toLowerCase().includes('jessabelle');
+  const jessaDesc = isJess ? `
+    <div class="section">
+      <h4>Biography</h4>
+      <div class="bio">
+        Jessabelle Florendo Abalos, serving as an Instructor, is passionate about leading and mentoring Group 5 in the dynamic field of Web Development. Her approach focuses on empowering each member to convert their unique ideas into tangible, impactful digital solutions. By emphasizing collaboration, creativity, and a deep understanding of technical skills, she cultivates an environment where students strive for excellence and inspire one another to reach new heights of innovation.
+        <br><br>
+        <strong>Bonus:</strong> maganda, mabait, pretty, gorgeous, beautiful, caring, cheerful.
+      </div>
+    </div>
+  ` : '';
+
+  const html = `
+    <div class="hero">
+      <div class="avatar">${photoHtml}</div>
+      <div class="meta">
+        <div class="name">${p.name || '—'}</div>
+        <div class="role">${p.role || '—'}</div>
+        ${ p.birthdate ? `<div class="small" style="opacity:.9;margin-top:6px">Birthdate: ${p.birthdate}</div>` : '' }
+        ${ tagsHtml ? `<div class="tags">${tagsHtml}</div>` : '' }
+        ${ p.favgame ? `<div class="small" style="margin-top:8px;opacity:.85">Favorite game: ${p.favgame}</div>` : '' }
+      </div>
+      <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end">
+        <a class="btn" href="${p.facebook || '#'}" target="_blank" rel="noopener noreferrer" title="View on Facebook">
+          <img src="https://uploads.onecompiler.io/43ee99qt7/43eea7v9z/facebook-logo-facebook-icon-transparent-free-png.webp"
+               style="width:32px;height:32px;object-fit:contain;" alt="facebook">
+        </a>
+        ${ p.instagram ? `
+          <a class="btn" href="${p.instagram}" target="_blank" rel="noopener noreferrer"
+             title="View on Instagram" style="margin-top:8px;">
+            <img src="https://uploads.onecompiler.io/43ee99qt7/444phx3yh/instagramlogo.png"
+                 style="width:32px;height:32px;object-fit:contain" alt="instagram">
+          </a>` : '' }
+        <button class="btn close-btn" id="closeProfile">Back to team</button>
+      </div>
+    </div>
+    ${ p.motto ? `<div class="section"><h4>Motto</h4><div class="motto">"${p.motto}"</div></div>` : '' }
+    ${ isJess ? jessaDesc : `<div class="section"><h4>Biography</h4><div class="bio">${p.bio || '—'}</div></div>` }
+  `;
+  profileCard.innerHTML = html;
+  profilePage.style.display = 'block';
+  profilePage.setAttribute('aria-hidden','false');
+  closeSelector();
+  const closeBtn = document.getElementById('closeProfile');
+  if(closeBtn){
+    closeBtn.addEventListener('click', ()=> {
+      profilePage.style.display = 'none';
+      profilePage.setAttribute('aria-hidden','true');
+      window.scrollTo({top:0,behavior:'smooth'});
+    }, { once:true });
+  }
+}
+
+/* clicking outside selector card closes it */
+document.getElementById('selectorOverlay').addEventListener('click', (e)=>{
+  if(e.target === document.getElementById('selectorOverlay')) closeSelector();
+});
+</script>
+</body>
+</html>
